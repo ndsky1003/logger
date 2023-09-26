@@ -257,8 +257,13 @@ func Warnf(msg string, args ...any) {
 	logf(LevelWarn, nil, msg, args...)
 }
 
-func Err(msg string) {
-	log(LevelErr, nil, msg)
+func Err(msg any) {
+	switch v := msg.(type) {
+	case string:
+		log(LevelErr, nil, v)
+	default:
+		log(LevelErr, nil, fmt.Sprintf("%+v", v))
+	}
 }
 
 func Errf(msg string, args ...any) {
