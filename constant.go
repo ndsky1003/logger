@@ -7,7 +7,7 @@ const (
 	LevelDebug     = slog.LevelDebug
 	LevelInfo      = slog.LevelInfo
 	LevelNotice    = slog.Level(2)
-	LevelWarning   = slog.LevelWarn
-	LevelError     = slog.LevelError
+	LevelWarn      = slog.LevelWarn
+	LevelErr       = slog.LevelError
 	LevelEmergency = slog.Level(12)
 )
