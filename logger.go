@@ -184,9 +184,9 @@ var (
 	}
 )
 
-func logf(level slog.Level, f field, msg string, args ...any) {
+func logf(skip int, level slog.Level, f field, msg string, args ...any) {
 	var pcs [1]uintptr
-	runtime.Callers(3, pcs[:])
+	runtime.Callers(skip, pcs[:])
 	r := slog.NewRecord(time.Now(), level, fmt.Sprintf(msg, args...), pcs[0])
 	if f != nil {
 		attrs := make([]slog.Attr, 0, len(f))
@@ -198,9 +198,9 @@ func logf(level slog.Level, f field, msg string, args ...any) {
 	Default().log(&r)
 }
 
-func log(level slog.Level, f field, msg string) {
+func log(skip int, level slog.Level, f field, msg string) {
 	var pcs [1]uintptr
-	runtime.Callers(3, pcs[:])
+	runtime.Callers(skip, pcs[:])
 	r := slog.NewRecord(time.Now(), level, msg, pcs[0])
 	if f != nil {
 		attrs := make([]slog.Attr, 0, len(f))
@@ -212,68 +212,72 @@ func log(level slog.Level, f field, msg string) {
 	Default().log(&r)
 }
 
+func log_any(l slog.Level, f field, msg any) {
+	switch v := msg.(type) {
+	case string:
+		log(4, l, f, v)
+	default:
+		log(4, l, f, fmt.Sprintf("%+v", v))
+	}
+}
+
 // api
 func SetLevel(v slog.Level) {
 	Default().set_level(v)
 }
 
-func Trace(msg string) {
-	log(LevelTrace, nil, msg)
+func Trace(msg any) {
+	log_any(LevelTrace, nil, msg)
 }
 
 func Tracef(msg string, args ...any) {
-	logf(LevelTrace, nil, msg, args...)
+	logf(3, LevelTrace, nil, msg, args...)
 }
 
 func Debug(msg string) {
-	log(LevelDebug, nil, msg)
+	log_any(LevelDebug, nil, msg)
 }
 
 func Debugf(msg string, args ...any) {
-	logf(LevelDebug, nil, msg, args...)
+	logf(3, LevelDebug, nil, msg, args...)
 }
 
 func Info(msg string) {
-	log(LevelInfo, nil, msg)
+	log_any(LevelInfo, nil, msg)
 }
 
 func Infof(msg string, args ...any) {
-	logf(LevelInfo, nil, msg, args...)
+	logf(3, LevelInfo, nil, msg, args...)
 }
 
 func Notice(msg string) {
-	log(LevelNotice, nil, msg)
+	log_any(LevelNotice, nil, msg)
 }
 
 func Noticef(msg string, args ...any) {
-	logf(LevelNotice, nil, msg, args...)
+	logf(3, LevelNotice, nil, msg, args...)
 }
 
 func Warn(msg string) {
-	log(LevelWarn, nil, msg)
+	log_any(LevelWarn, nil, msg)
 }
 
 func Warnf(msg string, args ...any) {
-	logf(LevelWarn, nil, msg, args...)
+	logf(3, LevelWarn, nil, msg, args...)
 }
 
 func Err(msg any) {
-	switch v := msg.(type) {
-	case string:
-		log(LevelErr, nil, v)
-	default:
-		log(LevelErr, nil, fmt.Sprintf("%+v", v))
-	}
+	log_any(LevelErr, nil, msg)
 }
 
 func Errf(msg string, args ...any) {
-	logf(LevelErr, nil, msg, args...)
+	logf(3, LevelErr, nil, msg, args...)
 }
 
 func Emergency(msg string) {
-	log(LevelEmergency, nil, msg)
+	log_any(LevelEmergency, nil, msg)
 }
 
 func Emergencyf(msg string, args ...any) {
-	logf(LevelEmergency, nil, msg, args...)
+	logf(3, LevelEmergency, nil, msg, args...)
 }
