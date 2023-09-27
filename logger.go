@@ -217,13 +217,15 @@ func log(skip int, level slog.Level, f field, msg string) {
 	Default().log(&r)
 }
 
-func log_any(l slog.Level, f field, msg any) {
-	switch v := msg.(type) {
-	case string:
-		log(4, l, f, v)
-	default:
-		log(4, l, f, fmt.Sprintf("%+v", v))
+func log_any(l slog.Level, f field, msg ...any) {
+	// fmt.Print("ni", 1, 3.1415926, errors.New("dd"), &Person{Name: "l", Age: 18})
+	// ni 和 1粘在一起了
+	// log(4, l, f, fmt.Sprint(msg...)) //这个函数格式不太对
+	s := fmt.Sprintln(msg...)
+	if strings.HasSuffix(s, "\n") {
+		s = s[0 : len(s)-1]
 	}
+	log(4, l, f, s)
 }
 
 // api
@@ -240,56 +242,56 @@ func Close() {
 	Default().close()
 }
 
-func Trace(msg any) {
-	log_any(LevelTrace, nil, msg)
+func Trace(msg ...any) {
+	log_any(LevelTrace, nil, msg...)
 }
 
 func Tracef(msg string, args ...any) {
 	logf(3, LevelTrace, nil, msg, args...)
 }
 
-func Debug(msg any) {
-	log_any(LevelDebug, nil, msg)
+func Debug(msg ...any) {
+	log_any(LevelDebug, nil, msg...)
 }
 
 func Debugf(msg string, args ...any) {
 	logf(3, LevelDebug, nil, msg, args...)
 }
 
-func Info(msg any) {
-	log_any(LevelInfo, nil, msg)
+func Info(msg ...any) {
+	log_any(LevelInfo, nil, msg...)
 }
 
 func Infof(msg string, args ...any) {
 	logf(3, LevelInfo, nil, msg, args...)
 }
 
-func Notice(msg any) {
-	log_any(LevelNotice, nil, msg)
+func Notice(msg ...any) {
+	log_any(LevelNotice, nil, msg...)
 }
 
 func Noticef(msg string, args ...any) {
 	logf(3, LevelNotice, nil, msg, args...)
 }
 
-func Warn(msg any) {
-	log_any(LevelWarn, nil, msg)
+func Warn(msg ...any) {
+	log_any(LevelWarn, nil, msg...)
 }
 
 func Warnf(msg string, args ...any) {
 	logf(3, LevelWarn, nil, msg, args...)
 }
 
-func Err(msg any) {
-	log_any(LevelErr, nil, msg)
+func Err(msg ...any) {
+	log_any(LevelErr, nil, msg...)
 }
 
 func Errf(msg string, args ...any) {
 	logf(3, LevelErr, nil, msg, args...)
 }
 
-func Emergency(msg any) {
-	log_any(LevelEmergency, nil, msg)
+func Emergency(msg ...any) {
+	log_any(LevelEmergency, nil, msg...)
 }
 
 func Emergencyf(msg string, args ...any) {
