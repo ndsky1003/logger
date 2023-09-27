@@ -19,6 +19,12 @@ import (
 
 const record_length = 128
 
+type create_handler func(io.Writer, *slog.HandlerOptions) slog.Handler
+
+var create_handler_func create_handler = func(w io.Writer, opt *slog.HandlerOptions) slog.Handler {
+	return NewCustomHandler(w, opt)
+}
+
 var (
 	exe           string
 	defaultLogger atomic.Value
@@ -93,7 +99,9 @@ func newLogger(now time.Time) *logger {
 		fmt.Println(err)
 		return nil
 	}
-	h := slog.NewTextHandler(f, opt)
+	// h := slog.NewTextHandler(f, opt)
+	// h := NewCustomHandler(f, opt)
+	h := create_handler_func(f, opt)
 	l := &logger{
 		wc:         f,
 		wg:         &sync.WaitGroup{},
@@ -139,11 +147,9 @@ var (
 		AddSource: true,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.TimeKey {
-				a.Key = "t"
 				a.Value = slog.StringValue(a.Value.Any().(time.Time).Format("01-02 15:04:05"))
 			}
 			if a.Key == slog.LevelKey {
-				a.Key = "l"
 				level := a.Value.Any().(slog.Level)
 				switch {
 				case level < LevelDebug:
@@ -163,7 +169,6 @@ var (
 				}
 			}
 			if a.Key == slog.SourceKey {
-				a.Key = "s"
 				source := a.Value.Any().(*slog.Source)
 				if v, ok := cache[source.File]; ok {
 					source.File = v
@@ -226,6 +231,15 @@ func SetLevel(v slog.Level) {
 	Default().set_level(v)
 }
 
+func SetCreateHandler(fn create_handler) {
+	create_handler_func = fn
+	initLogger(time.Now())
+}
+
+func Close() {
+	Default().close()
+}
+
 func Trace(msg any) {
 	log_any(LevelTrace, nil, msg)
 }
@@ -234,7 +248,7 @@ func Tracef(msg string, args ...any) {
 	logf(3, LevelTrace, nil, msg, args...)
 }
 
-func Debug(msg string) {
+func Debug(msg any) {
 	log_any(LevelDebug, nil, msg)
 }
 
@@ -242,7 +256,7 @@ func Debugf(msg string, args ...any) {
 	logf(3, LevelDebug, nil, msg, args...)
 }
 
-func Info(msg string) {
+func Info(msg any) {
 	log_any(LevelInfo, nil, msg)
 }
 
@@ -250,7 +264,7 @@ func Infof(msg string, args ...any) {
 	logf(3, LevelInfo, nil, msg, args...)
 }
 
-func Notice(msg string) {
+func Notice(msg any) {
 	log_any(LevelNotice, nil, msg)
 }
 
@@ -258,7 +272,7 @@ func Noticef(msg string, args ...any) {
 	logf(3, LevelNotice, nil, msg, args...)
 }
 
-func Warn(msg string) {
+func Warn(msg any) {
 	log_any(LevelWarn, nil, msg)
 }
 
@@ -274,7 +288,7 @@ func Errf(msg string, args ...any) {
 	logf(3, LevelErr, nil, msg, args...)
 }
 
-func Emergency(msg string) {
+func Emergency(msg any) {
 	log_any(LevelEmergency, nil, msg)
 }
 
