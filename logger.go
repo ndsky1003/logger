@@ -26,12 +26,32 @@ var create_handler_func create_handler = func(w io.Writer, opt *slog.HandlerOpti
 }
 
 var (
+	folder        string = "log"
 	exe           string
 	defaultLogger atomic.Value
 	lock          sync.Mutex
 )
 
+func init_folder(folder string) error {
+	fi, err := os.Stat(folder)
+	if err != nil {
+		if os.IsNotExist(err) {
+			if err := os.MkdirAll(folder, os.ModePerm); err != nil {
+				return fmt.Errorf("create folder:%v,err:%v", folder, err)
+			}
+		}
+	} else {
+		if !fi.IsDir() {
+			return fmt.Errorf("%v is not dir", folder)
+		}
+	}
+	return nil
+}
+
 func init() {
+	if err := init_folder(folder); err != nil {
+		panic(err)
+	}
 	exe = path.Base(os.Args[0])
 	SetLevel(LevelInfo)
 	c := cron.New(cron.WithSeconds())
@@ -94,7 +114,8 @@ func initLogger(now time.Time) {
 
 func newLogger(now time.Time) *logger {
 	filename := fmt.Sprintf("%s-%v.log", exe, now.Format(time.DateOnly))
-	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
+	filename = filepath.Join(folder, filename)
+	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
 		fmt.Println(err)
 		return nil
@@ -231,6 +252,17 @@ func log_any(l slog.Level, f field, msg ...any) {
 // api
 func SetLevel(v slog.Level) {
 	Default().set_level(v)
+}
+
+func SetFolder(f string) {
+	if f == "" {
+		panic("folder is empty")
+	}
+	if err := init_folder(f); err != nil {
+		panic(err)
+	}
+	folder = f
+	initLogger(time.Now())
 }
 
 func SetCreateHandler(fn create_handler) {
