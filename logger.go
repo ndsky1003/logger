@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	glog "log"
 	"log/slog"
 	"os"
 	"path"
@@ -27,6 +28,7 @@ var create_handler_func create_handler = func(w io.Writer, opt *slog.HandlerOpti
 
 var (
 	folder        string = "log"
+	pwd           []rune = []rune{}
 	exe           string
 	defaultLogger atomic.Value
 	lock          sync.Mutex
@@ -52,13 +54,23 @@ func init() {
 	if err := init_folder(folder); err != nil {
 		panic(err)
 	}
+
+	if p, err := os.Getwd(); err != nil {
+		panic(err)
+	} else {
+		pwd = make([]rune, len(p), len(p)+1)
+		copy(pwd, []rune(p))
+		pwd = append(pwd, '/')
+	}
 	exe = path.Base(os.Args[0])
 	SetLevel(LevelInfo)
 	c := cron.New(cron.WithSeconds())
-	c.AddFunc("0 0 0 * * *", func() {
+	if _, err := c.AddFunc("0 0 0 * * *", func() {
 		now := time.Now().Add(1 * time.Minute)
 		initLogger(now)
-	})
+	}); err != nil {
+		glog.Println("err:", err)
+	}
 	c.Start()
 	initLogger(time.Now())
 }
@@ -85,7 +97,7 @@ func (this *logger) close() {
 	}
 	this.wg.Wait()
 	if err := this.wc.Close(); err != nil {
-		fmt.Println("===err:", err)
+		glog.Println("===err:", err)
 	}
 }
 
@@ -117,7 +129,7 @@ func newLogger(now time.Time) *logger {
 	filename = filepath.Join(folder, filename)
 	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
-		fmt.Println(err)
+		glog.Println(err)
 		return nil
 	}
 	// h := slog.NewTextHandler(f, opt)
@@ -150,7 +162,9 @@ func (this *logger) log(r *slog.Record) {
 
 func (this *logger) _log() {
 	for v := range this.chanRecord {
-		this.logger.Handler().Handle(context.Background(), *v)
+		if err := this.logger.Handler().Handle(context.Background(), *v); err != nil {
+			glog.Printf("msg:%+v,err:%v\n", v, err)
+		}
 		this.wg.Done()
 	}
 }
@@ -174,17 +188,17 @@ var (
 				level := a.Value.Any().(slog.Level)
 				switch {
 				case level < LevelDebug:
-					a.Value = slog.StringValue("TRACE")
+					a.Value = slog.StringValue("  TRACE  ")
 				case level < LevelInfo:
-					a.Value = slog.StringValue("DEBUG")
+					a.Value = slog.StringValue("  DEBUG  ")
 				case level < LevelNotice:
-					a.Value = slog.StringValue("INFO")
+					a.Value = slog.StringValue("  INFO   ")
 				case level < LevelWarn:
-					a.Value = slog.StringValue("NOTICE")
+					a.Value = slog.StringValue(" NOTICE  ")
 				case level < LevelErr:
-					a.Value = slog.StringValue("WARNING")
+					a.Value = slog.StringValue(" WARNING ")
 				case level < LevelEmergency:
-					a.Value = slog.StringValue("ERROR")
+					a.Value = slog.StringValue("  ERROR  ")
 				default:
 					a.Value = slog.StringValue("EMERGENCY")
 				}
@@ -194,21 +208,46 @@ var (
 				if v, ok := cache[source.File]; ok {
 					source.File = v
 				} else {
-					files := strings.Split(source.File, string(filepath.Separator))
-					length := len(files)
-					realPath := source.File
-					if length > 3 {
-						files = files[length-3:]
-						realPath = filepath.Join(files...)
-					}
-					cache[source.File] = realPath
-					source.File = realPath
+					// 1
+					// realPath := strings.TrimPrefix(source.File, pwd)
+					// 2
+					// files := strings.Split(source.File, string(filepath.Separator))
+					// length := len(files)
+					// realPath := source.File
+					// if length > 3 {
+					// 	files = files[length-3:]
+					// 	realPath = filepath.Join(files...)
+					// }
+					// cache[source.File] = realPath
+					// source.File = realPath
+
+					// 3
+					source.File = trimsamestr(source.File, pwd)
+					cache[source.File] = source.File
 				}
 			}
 			return a
 		},
 	}
 )
+
+func trimsamestr(s string, trims []rune) string {
+	index := -1
+	for i, v := range s {
+		if i >= len(trims) {
+			break
+		}
+		if v != trims[i] {
+			break
+		}
+		index = i
+	}
+	if index != -1 {
+		return s[index+1:]
+	} else {
+		return s
+	}
+}
 
 func logf(skip int, level slog.Level, f field, msg string, args ...any) {
 	var pcs [1]uintptr
@@ -243,9 +282,10 @@ func log_any(l slog.Level, f field, msg ...any) {
 	// ni 和 1粘在一起了
 	// log(4, l, f, fmt.Sprint(msg...)) //这个函数格式不太对
 	s := fmt.Sprintln(msg...)
-	if strings.HasSuffix(s, "\n") {
-		s = s[0 : len(s)-1]
-	}
+	// if strings.HasSuffix(s, "\n") {
+	// 	s = s[0 : len(s)-1]
+	// }
+	s = strings.TrimSuffix(s, "\n")
 	log(4, l, f, s)
 }
 

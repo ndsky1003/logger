@@ -12,7 +12,7 @@ type custom_handler struct {
 	opts              *slog.HandlerOptions
 	preformattedAttrs []byte
 	groupPrefix       string
-	groups            []string // all groups started from WithGroup
+	// groups            []string // all groups started from WithGroup
 	// nOpenGroups       int      // the number of groups opened in preformattedAttrs
 	w io.Writer
 }
@@ -58,10 +58,6 @@ func (this *custom_handler) Handle(_ context.Context, r slog.Record) error {
 		}
 	}
 
-	if this.opts.AddSource {
-		state.appendAttr(slog.Any(slog.SourceKey, source(r.PC)))
-	}
-
 	// level
 	key := slog.LevelKey
 	val := r.Level
@@ -70,6 +66,11 @@ func (this *custom_handler) Handle(_ context.Context, r slog.Record) error {
 		state.appendString(val.String())
 	} else {
 		state.appendAttr(slog.Any(key, val))
+	}
+
+	// 文件
+	if this.opts.AddSource {
+		state.appendAttr(slog.Any(slog.SourceKey, source(r.PC)))
 	}
 
 	key = slog.MessageKey
@@ -82,8 +83,9 @@ func (this *custom_handler) Handle(_ context.Context, r slog.Record) error {
 	}
 	state.groups = stateGroups // Restore groups passed to ReplaceAttrs.
 	state.appendNonBuiltIns(r)
-	state.buf.WriteByte('\n')
-
+	if err := state.buf.WriteByte('\n'); err != nil {
+		return err
+	}
 	_, err := this.w.Write(*state.buf)
 	return err
 }
