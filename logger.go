@@ -27,8 +27,8 @@ var create_handler_func create_handler = func(w io.Writer, opt *slog.HandlerOpti
 }
 
 var (
-	folder        string = "log"
-	pwd           []rune = []rune{}
+	folder string = "log"
+	// pwd           []rune = []rune{}
 	exe           string
 	defaultLogger atomic.Value
 	lock          sync.Mutex
@@ -55,13 +55,13 @@ func init() {
 		panic(err)
 	}
 
-	if p, err := os.Getwd(); err != nil {
-		panic(err)
-	} else {
-		pwd = make([]rune, len(p), len(p)+1)
-		copy(pwd, []rune(p))
-		pwd = append(pwd, '/')
-	}
+	// if p, err := os.Getwd(); err != nil {
+	// 	panic(err)
+	// } else {
+	// 	pwd = make([]rune, len(p), len(p)+1)
+	// 	copy(pwd, []rune(p))
+	// 	pwd = append(pwd, '/')
+	// }
 	exe = path.Base(os.Args[0])
 	SetLevel(LevelInfo)
 	c := cron.New(cron.WithSeconds())
@@ -221,9 +221,15 @@ var (
 					// cache[source.File] = realPath
 					// source.File = realPath
 
-					// 3
-					source.File = trimsamestr(source.File, pwd)
+					// // 3
+					// source.File = trimsamestr(source.File, pwd)
+					// cache[source.File] = source.File
+
+					//4
+
+					source.File = filepath.Base(source.File)
 					cache[source.File] = source.File
+
 				}
 			}
 			return a
@@ -312,6 +318,10 @@ func SetCreateHandler(fn create_handler) {
 
 func Close() {
 	Default().close()
+}
+
+func Flush() {
+	Close()
 }
 
 func Trace(msg ...any) {
