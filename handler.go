@@ -46,6 +46,17 @@ func (this *custom_handler) Handle(_ context.Context, r slog.Record) error {
 	stateGroups := state.groups
 	state.groups = nil // So ReplaceAttrs sees no groups instead of the pre groups.
 	rep := this.opts.ReplaceAttr
+
+	// level
+	key := slog.LevelKey
+	val := r.Level
+	if rep == nil {
+		state.appendKey(key)
+		state.appendString(val.String())
+	} else {
+		state.appendAttr(slog.Any(key, val))
+	}
+
 	// time
 	if !r.Time.IsZero() {
 		key := slog.TimeKey
@@ -56,16 +67,6 @@ func (this *custom_handler) Handle(_ context.Context, r slog.Record) error {
 		} else {
 			state.appendAttr(slog.Time(key, val))
 		}
-	}
-
-	// level
-	key := slog.LevelKey
-	val := r.Level
-	if rep == nil {
-		state.appendKey(key)
-		state.appendString(val.String())
-	} else {
-		state.appendAttr(slog.Any(key, val))
 	}
 
 	// 文件
