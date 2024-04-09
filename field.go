@@ -1,6 +1,11 @@
 package logger
 
-import "log/slog"
+import (
+	"fmt"
+	"log/slog"
+	"os"
+	"runtime/debug"
+)
 
 type field map[string]slog.Value
 
@@ -67,4 +72,26 @@ func (this field) Emergency(msg ...any) {
 
 func (this field) Emergencyf(msg string, args ...any) {
 	logf(3, LevelEmergency, this, msg, args...)
+}
+
+func (this field) Fatal(msg ...any) {
+	defer func() {
+		Flush()
+		os.Exit(1)
+	}()
+	log_any(LevelFatal, this, msg...)
+	s := string(debug.Stack())
+	log_any(LevelFatal, nil, s)
+	fmt.Println(s)
+}
+
+func (this field) Fatalf(msg string, args ...any) {
+	defer func() {
+		Flush()
+		os.Exit(1)
+	}()
+	logf(3, LevelFatal, this, msg, args...)
+	s := string(debug.Stack())
+	log_any(LevelFatal, nil, s)
+	fmt.Println(s)
 }

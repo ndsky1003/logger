@@ -81,6 +81,7 @@ func (this *custom_handler) Handle(_ context.Context, r slog.Record) error {
 		state.appendString(msg)
 	} else {
 		state.appendAttr(slog.String(key, msg))
+		// state.appendString(msg)
 	}
 	state.groups = stateGroups // Restore groups passed to ReplaceAttrs.
 	state.appendNonBuiltIns(r)

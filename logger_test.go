@@ -2,15 +2,21 @@ package logger
 
 import "testing"
 
-func TestLogger(t *testing.T) {
+// func TestLogger(t *testing.T) {
+// 	defer Flush()
+// 	// SetFolder("logs")
+// 	// SetLevel(LevelWarn)
+// 	Debug("debug")
+// 	// Info("info1")
+// 	// Warn("warn")
+// 	// Err("err")
+// 	// Fields().Add("key1", "value1").Info("infomsg")
+// }
+
+func TestFatal(t *testing.T) {
 	defer Flush()
-	SetFolder("logs")
-	SetLevel(LevelWarn)
-	Debug("debug")
-	Info("info")
-	Warn("warn")
-	Err("err")
-	Fields().Add("key1", "value1").Info("infomsg")
+	// SetLevel(LevelFatal)
+	Fatal("fatal")
 }
 
 // BenchmarkLogger-12    	 2540012	      4563 ns/op

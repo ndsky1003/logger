@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -187,20 +188,24 @@ var (
 			if a.Key == slog.LevelKey {
 				level := a.Value.Any().(slog.Level)
 				switch {
-				case level < LevelDebug:
-					a.Value = slog.StringValue("  TRACE  ")
-				case level < LevelInfo:
-					a.Value = slog.StringValue("  DEBUG  ")
-				case level < LevelNotice:
-					a.Value = slog.StringValue("  INFO   ")
-				case level < LevelWarn:
-					a.Value = slog.StringValue(" NOTICE  ")
-				case level < LevelErr:
-					a.Value = slog.StringValue(" WARNING ")
-				case level < LevelEmergency:
-					a.Value = slog.StringValue("  ERROR  ")
+				case level == LevelDebug:
+					a.Value = slog.StringValue(" TRACE ")
+				case level == LevelDebug:
+					a.Value = slog.StringValue(" DEBUG ")
+				case level == LevelInfo:
+					a.Value = slog.StringValue(" INFO  ")
+				case level == LevelNotice:
+					a.Value = slog.StringValue(" NOTICE")
+				case level == LevelWarn:
+					a.Value = slog.StringValue(" WARN  ")
+				case level == LevelErr:
+					a.Value = slog.StringValue(" Err   ")
+				case level == LevelEmergency:
+					a.Value = slog.StringValue(" EMERGE")
+				case level == LevelFatal:
+					a.Value = slog.StringValue(" FATAL ")
 				default:
-					a.Value = slog.StringValue("EMERGENCY")
+					a.Value = slog.StringValue("no")
 				}
 			}
 			if a.Key == slog.SourceKey {
@@ -237,23 +242,23 @@ var (
 	}
 )
 
-func trimsamestr(s string, trims []rune) string {
-	index := -1
-	for i, v := range s {
-		if i >= len(trims) {
-			break
-		}
-		if v != trims[i] {
-			break
-		}
-		index = i
-	}
-	if index != -1 {
-		return s[index+1:]
-	} else {
-		return s
-	}
-}
+// func trimsamestr(s string, trims []rune) string {
+// 	index := -1
+// 	for i, v := range s {
+// 		if i >= len(trims) {
+// 			break
+// 		}
+// 		if v != trims[i] {
+// 			break
+// 		}
+// 		index = i
+// 	}
+// 	if index != -1 {
+// 		return s[index+1:]
+// 	} else {
+// 		return s
+// 	}
+// }
 
 func logf(skip int, level slog.Level, f field, msg string, args ...any) {
 	var pcs [1]uintptr
@@ -378,4 +383,26 @@ func Emergency(msg ...any) {
 
 func Emergencyf(msg string, args ...any) {
 	logf(3, LevelEmergency, nil, msg, args...)
+}
+
+func Fatalf(format string, v ...any) {
+	defer func() {
+		Flush()
+		os.Exit(1)
+	}()
+	logf(3, LevelFatal, nil, format, v...)
+	s := string(debug.Stack())
+	log_any(LevelFatal, nil, s)
+	fmt.Println(s)
+}
+
+func Fatal(v ...any) {
+	defer func() {
+		Flush()
+		os.Exit(1)
+	}()
+	log_any(LevelFatal, nil, v...)
+	s := string(debug.Stack())
+	log_any(LevelFatal, nil, s)
+	fmt.Println(s)
 }
