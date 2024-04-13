@@ -178,8 +178,8 @@ func (this *logger) set_level(v slog.Level) {
 }
 
 var (
-	cache = map[string]string{}
-	opt   = &slog.HandlerOptions{
+	// cache = map[string]string{}
+	opt = &slog.HandlerOptions{
 		AddSource: true,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.TimeKey {
@@ -210,32 +210,32 @@ var (
 			}
 			if a.Key == slog.SourceKey {
 				source := a.Value.Any().(*slog.Source)
-				if v, ok := cache[source.File]; ok {
-					source.File = v
-				} else {
-					// 1
-					// realPath := strings.TrimPrefix(source.File, pwd)
-					// 2
-					// files := strings.Split(source.File, string(filepath.Separator))
-					// length := len(files)
-					// realPath := source.File
-					// if length > 3 {
-					// 	files = files[length-3:]
-					// 	realPath = filepath.Join(files...)
-					// }
-					// cache[source.File] = realPath
-					// source.File = realPath
+				// if v, ok := cache[source.File]; ok {
+				// 	source.File = v
+				// } else {
+				// 1
+				// realPath := strings.TrimPrefix(source.File, pwd)
+				// 2
+				// files := strings.Split(source.File, string(filepath.Separator))
+				// length := len(files)
+				// realPath := source.File
+				// if length > 3 {
+				// 	files = files[length-3:]
+				// 	realPath = filepath.Join(files...)
+				// }
+				// cache[source.File] = realPath
+				// source.File = realPath
 
-					// // 3
-					// source.File = trimsamestr(source.File, pwd)
-					// cache[source.File] = source.File
+				// // 3
+				// source.File = trimsamestr(source.File, pwd)
+				// cache[source.File] = source.File
 
-					//4
+				//4
 
-					source.File = filepath.Base(source.File)
-					cache[source.File] = source.File
+				source.File = filepath.Base(source.File)
+				// cache[source.File] = source.File
 
-				}
+				// }
 			}
 			return a
 		},
