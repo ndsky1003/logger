@@ -23,16 +23,27 @@ const record_length = 128
 
 type create_handler func(io.Writer, *slog.HandlerOptions) slog.Handler
 
-var create_handler_func create_handler = func(w io.Writer, opt *slog.HandlerOptions) slog.Handler {
+// default
+var create_handler_func create_handler = StdTextHandlerCreateFunc
+
+var DailyHandlerCreateFunc create_handler = func(w io.Writer, opt *slog.HandlerOptions) slog.Handler {
 	return NewCustomHandler(w, opt)
 }
 
+var StdTextHandlerCreateFunc create_handler = func(_ io.Writer, opt *slog.HandlerOptions) slog.Handler {
+	return slog.NewTextHandler(os.Stdout, opt)
+}
+
+var StdJsonHandlerCreateFunc create_handler = func(_ io.Writer, opt *slog.HandlerOptions) slog.Handler {
+	return slog.NewJSONHandler(os.Stdout, opt)
+}
+
 var (
-	folder string = "log"
-	// pwd           []rune = []rune{}
-	exe           string
-	defaultLogger atomic.Value
-	lock          sync.Mutex
+	default_folder string     = "log"
+	default_level  slog.Level = LevelInfo
+	exe            string
+	defaultLogger  atomic.Value
+	lock           sync.Mutex
 )
 
 func init_folder(folder string) error {
@@ -51,36 +62,45 @@ func init_folder(folder string) error {
 	return nil
 }
 
-func init() {
-	if err := init_folder(folder); err != nil {
+var default_cron_id cron.EntryID
+var c = cron.New(cron.WithSeconds())
+
+func init_daily() {
+	if err := init_folder(default_folder); err != nil {
 		panic(err)
 	}
-
-	// if p, err := os.Getwd(); err != nil {
-	// 	panic(err)
-	// } else {
-	// 	pwd = make([]rune, len(p), len(p)+1)
-	// 	copy(pwd, []rune(p))
-	// 	pwd = append(pwd, '/')
-	// }
 	exe = path.Base(os.Args[0])
-	SetLevel(LevelInfo)
-	c := cron.New(cron.WithSeconds())
-	if _, err := c.AddFunc("0 0 0 * * *", func() {
+	c.Remove(default_cron_id)
+	var err error
+	if default_cron_id, err = c.AddFunc("0 0 0 * * *", func() {
 		now := time.Now().Add(1 * time.Minute)
-		initLogger(now)
+		filename := fmt.Sprintf("%s-%v.log", exe, now.Format(time.DateOnly))
+		filename = filepath.Join(default_folder, filename)
+		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		if err != nil {
+			glog.Println(err)
+			return
+		}
+		initLogger(f)
 	}); err != nil {
 		glog.Println("err:", err)
 	}
 	c.Start()
-	initLogger(time.Now())
+	filename := fmt.Sprintf("%s-%v.log", exe, time.Now().Format(time.DateOnly))
+	filename = filepath.Join(default_folder, filename)
+	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		glog.Println(err)
+		return
+	}
+	initLogger(f)
 }
 
 func Default() *logger {
 	if v := defaultLogger.Load(); v != nil {
 		return v.(*logger)
 	} else {
-		return nil
+		return initLogger(os.Stdout)
 	}
 }
 
@@ -108,12 +128,15 @@ func (this *logger) Close() {
 	}
 }
 
-func initLogger(now time.Time) {
+func initLogger(w io.WriteCloser) *logger {
 	lock.Lock()
 	defer lock.Unlock()
-	oldLogger := Default()
+	var oldLogger *logger
+	if v := defaultLogger.Load(); v != nil {
+		oldLogger = v.(*logger)
+	}
 	oldLogger.Close()
-	tmpLogger := newLogger(now)
+	tmpLogger := newLogger(w)
 	if oldLogger == nil {
 		if b := defaultLogger.CompareAndSwap(nil, tmpLogger); b {
 			slog.SetDefault(tmpLogger.logger)
@@ -123,25 +146,18 @@ func initLogger(now time.Time) {
 			slog.SetDefault(tmpLogger.logger)
 		}
 	}
+	return tmpLogger
 }
 
-func newLogger(now time.Time) *logger {
-	filename := fmt.Sprintf("%s-%v.log", exe, now.Format(time.DateOnly))
-	filename = filepath.Join(folder, filename)
-	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-	if err != nil {
-		glog.Println(err)
-		return nil
-	}
-	// h := slog.NewTextHandler(f, opt)
-	// h := NewCustomHandler(f, opt)
-	h := create_handler_func(f, opt)
+func newLogger(w io.WriteCloser) *logger {
+	h := create_handler_func(w, opt)
 	l := &logger{
-		wc:         f,
+		wc:         w,
 		wg:         &sync.WaitGroup{},
 		logger:     slog.New(h),
 		chanRecord: make(chan *slog.Record, record_length),
 	}
+	l.set_level(default_level)
 	go l._log()
 	return l
 }
@@ -302,23 +318,34 @@ func log_any(l slog.Level, f field, msg ...any) {
 
 // api
 func SetLevel(v slog.Level) {
-	Default().set_level(v)
+	default_level = v
+	Default().set_level(default_level)
 }
 
 func SetFolder(f string) {
 	if f == "" {
-		panic("folder is empty")
+		return
 	}
-	if err := init_folder(f); err != nil {
+	default_folder = f
+	if err := init_folder(default_folder); err != nil {
 		panic(err)
 	}
-	folder = f
-	initLogger(time.Now())
 }
 
 func SetCreateHandler(fn create_handler) {
+	if is_set_daily {
+		c.Remove(default_cron_id)
+	}
 	create_handler_func = fn
-	initLogger(time.Now())
+	initLogger(os.Stdout)
+}
+
+var is_set_daily = false
+
+func SetDaily() {
+	is_set_daily = true
+	SetCreateHandler(DailyHandlerCreateFunc)
+	init_daily()
 }
 
 func Close() {
