@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	glog "log"
 	"log/slog"
 	"os"
 	"path"
@@ -24,7 +23,9 @@ const record_length = 128
 type create_handler func(io.Writer, *slog.HandlerOptions) slog.Handler
 
 // default
-var create_handler_func create_handler = StdTextHandlerCreateFunc
+var create_handler_func create_handler = func(w io.Writer, opt *slog.HandlerOptions) slog.Handler {
+	return NewCustomHandler(w, opt)
+}
 
 var DailyHandlerCreateFunc create_handler = func(w io.Writer, opt *slog.HandlerOptions) slog.Handler {
 	return NewCustomHandler(w, opt)
@@ -78,19 +79,19 @@ func init_daily() {
 		filename = filepath.Join(default_folder, filename)
 		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 		if err != nil {
-			glog.Println(err)
+			fmt.Println(err)
 			return
 		}
 		initLogger(f)
 	}); err != nil {
-		glog.Println("err:", err)
+		fmt.Println("err:", err)
 	}
 	c.Start()
 	filename := fmt.Sprintf("%s-%v.log", exe, time.Now().Format(time.DateOnly))
 	filename = filepath.Join(default_folder, filename)
 	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
-		glog.Println(err)
+		fmt.Println(err)
 		return
 	}
 	initLogger(f)
@@ -118,7 +119,7 @@ func (this *logger) close() {
 	}
 	this.wg.Wait()
 	if err := this.wc.Close(); err != nil {
-		glog.Println("===err:", err)
+		fmt.Println("===flush:", err)
 	}
 }
 
@@ -180,7 +181,7 @@ func (this *logger) log(r *slog.Record) {
 func (this *logger) _log() {
 	for v := range this.chanRecord {
 		if err := this.logger.Handler().Handle(context.Background(), *v); err != nil {
-			glog.Printf("msg:%+v,err:%v\n", v, err)
+			fmt.Printf("handle msg:%+v,err:%v\n", v, err)
 		}
 		this.wg.Done()
 	}
@@ -199,27 +200,27 @@ var (
 		AddSource: true,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.TimeKey {
-				a.Value = slog.StringValue(a.Value.Any().(time.Time).Format("01-02 15:04:05"))
+				a.Value = slog.StringValue(a.Value.Any().(time.Time).Format("01/02 15:04:05"))
 			}
 			if a.Key == slog.LevelKey {
 				level := a.Value.Any().(slog.Level)
 				switch {
+				case level == LevelTrace:
+					a.Value = slog.StringValue("TRACE")
 				case level == LevelDebug:
-					a.Value = slog.StringValue(" TRACE ")
-				case level == LevelDebug:
-					a.Value = slog.StringValue(" DEBUG ")
+					a.Value = slog.StringValue("DEBUG")
 				case level == LevelInfo:
-					a.Value = slog.StringValue(" INFO  ")
+					a.Value = slog.StringValue("INFO ")
 				case level == LevelNotice:
-					a.Value = slog.StringValue(" NOTICE")
+					a.Value = slog.StringValue("NOTIC")
 				case level == LevelWarn:
-					a.Value = slog.StringValue(" WARN  ")
+					a.Value = slog.StringValue("WARN ")
 				case level == LevelErr:
-					a.Value = slog.StringValue(" Err   ")
+					a.Value = slog.StringValue("Err  ")
 				case level == LevelEmergency:
-					a.Value = slog.StringValue(" EMERGE")
+					a.Value = slog.StringValue("EMERE")
 				case level == LevelFatal:
-					a.Value = slog.StringValue(" FATAL ")
+					a.Value = slog.StringValue("FATAL")
 				default:
 					a.Value = slog.StringValue("no")
 				}
@@ -276,6 +277,10 @@ var (
 // 	}
 // }
 
+func get_skip() int {
+	return default_skip + delta_skip
+}
+
 func logf(skip int, level slog.Level, f field, msg string, args ...any) {
 	var pcs [1]uintptr
 	runtime.Callers(skip, pcs[:])
@@ -313,13 +318,21 @@ func log_any(l slog.Level, f field, msg ...any) {
 	// 	s = s[0 : len(s)-1]
 	// }
 	s = strings.TrimSuffix(s, "\n")
-	log(4, l, f, s)
+	log(get_skip()+1, l, f, s)
 }
 
 // api
 func SetLevel(v slog.Level) {
 	default_level = v
 	Default().set_level(default_level)
+}
+
+func GetLevel() slog.Level {
+	return default_level
+}
+
+func SetDeltaSkip(v int) {
+	delta_skip = v
 }
 
 func SetFolder(f string) {
@@ -361,7 +374,7 @@ func Trace(msg ...any) {
 }
 
 func Tracef(msg string, args ...any) {
-	logf(3, LevelTrace, nil, msg, args...)
+	logf(get_skip(), LevelTrace, nil, msg, args...)
 }
 
 func Debug(msg ...any) {
@@ -369,7 +382,7 @@ func Debug(msg ...any) {
 }
 
 func Debugf(msg string, args ...any) {
-	logf(3, LevelDebug, nil, msg, args...)
+	logf(get_skip(), LevelDebug, nil, msg, args...)
 }
 
 func Info(msg ...any) {
@@ -377,7 +390,7 @@ func Info(msg ...any) {
 }
 
 func Infof(msg string, args ...any) {
-	logf(3, LevelInfo, nil, msg, args...)
+	logf(get_skip(), LevelInfo, nil, msg, args...)
 }
 
 func Notice(msg ...any) {
@@ -385,7 +398,7 @@ func Notice(msg ...any) {
 }
 
 func Noticef(msg string, args ...any) {
-	logf(3, LevelNotice, nil, msg, args...)
+	logf(get_skip(), LevelNotice, nil, msg, args...)
 }
 
 func Warn(msg ...any) {
@@ -393,7 +406,7 @@ func Warn(msg ...any) {
 }
 
 func Warnf(msg string, args ...any) {
-	logf(3, LevelWarn, nil, msg, args...)
+	logf(get_skip(), LevelWarn, nil, msg, args...)
 }
 
 func Err(msg ...any) {
@@ -401,7 +414,7 @@ func Err(msg ...any) {
 }
 
 func Errf(msg string, args ...any) {
-	logf(3, LevelErr, nil, msg, args...)
+	logf(get_skip(), LevelErr, nil, msg, args...)
 }
 
 func Emergency(msg ...any) {
@@ -409,7 +422,7 @@ func Emergency(msg ...any) {
 }
 
 func Emergencyf(msg string, args ...any) {
-	logf(3, LevelEmergency, nil, msg, args...)
+	logf(get_skip(), LevelEmergency, nil, msg, args...)
 }
 
 func Fatalf(format string, v ...any) {
@@ -417,13 +430,13 @@ func Fatalf(format string, v ...any) {
 		Flush()
 		os.Exit(1)
 	}()
-	logf(3, LevelFatal, nil, format, v...)
+	logf(get_skip(), LevelFatal, nil, format, v...)
 	s := string(debug.Stack())
 	log_any(LevelFatal, nil, s)
 	fmt.Println(s)
 }
 
-func Fatal(v ...any) {
+func Fatalln(v ...any) {
 	defer func() {
 		Flush()
 		os.Exit(1)
