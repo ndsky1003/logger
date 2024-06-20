@@ -80,7 +80,8 @@ func (this *custom_handler) Handle(_ context.Context, r slog.Record) error {
 		state.appendKey(key)
 		state.appendString(msg)
 	} else {
-		state.appendAttr(slog.String(key, msg))
+		state.appendString(msg)
+		// state.appendAttr(slog.String(key, msg))
 		// state.appendString(msg)
 	}
 	state.groups = stateGroups // Restore groups passed to ReplaceAttrs.
