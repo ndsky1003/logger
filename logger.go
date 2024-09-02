@@ -9,8 +9,6 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"runtime/debug"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -281,7 +279,7 @@ func get_skip() int {
 	return default_skip + delta_skip
 }
 
-func logf(skip int, level slog.Level, f field, msg string, args ...any) {
+func logf(skip int, level slog.Level, f Field, msg string, args ...any) {
 	var pcs [1]uintptr
 	runtime.Callers(skip, pcs[:])
 	r := slog.NewRecord(time.Now(), level, fmt.Sprintf(msg, args...), pcs[0])
@@ -295,7 +293,7 @@ func logf(skip int, level slog.Level, f field, msg string, args ...any) {
 	Default().log(&r)
 }
 
-func log(skip int, level slog.Level, f field, msg string) {
+func log(skip int, level slog.Level, f Field, msg string) {
 	var pcs [1]uintptr
 	runtime.Callers(skip, pcs[:])
 	r := slog.NewRecord(time.Now(), level, msg, pcs[0])
@@ -309,140 +307,18 @@ func log(skip int, level slog.Level, f field, msg string) {
 	Default().log(&r)
 }
 
-func log_any(l slog.Level, f field, msg ...any) {
-	// fmt.Print("ni", 1, 3.1415926, errors.New("dd"), &Person{Name: "l", Age: 18})
-	// ni 和 1粘在一起了
-	// log(4, l, f, fmt.Sprint(msg...)) //这个函数格式不太对
-	s := fmt.Sprintln(msg...)
-	// if strings.HasSuffix(s, "\n") {
-	// 	s = s[0 : len(s)-1]
-	// }
-	s = strings.TrimSuffix(s, "\n")
+func log_any(l slog.Level, f Field, msgs ...any) {
+	s := ""
+	if wrap_func_obj != nil {
+		s = wrap_func_obj(msgs...)
+	} else {
+		s = fmt.Sprint(msgs...)
+	}
 	log(get_skip()+1, l, f, s)
 }
 
-// api
-func SetLevel(v slog.Level) {
-	default_level = v
-	Default().set_level(default_level)
-}
+type warp_func func(...any) string
 
-func GetLevel() slog.Level {
-	return default_level
-}
-
-func SetDeltaSkip(v int) {
-	delta_skip = v
-}
-
-func SetFolder(f string) {
-	if f == "" {
-		return
-	}
-	default_folder = f
-	if err := init_folder(default_folder); err != nil {
-		panic(err)
-	}
-}
-
-func SetCreateHandler(fn create_handler) {
-	if is_set_daily {
-		c.Remove(default_cron_id)
-	}
-	create_handler_func = fn
-	initLogger(os.Stdout)
-}
+var wrap_func_obj warp_func
 
 var is_set_daily = false
-
-func SetDaily() {
-	is_set_daily = true
-	SetCreateHandler(DailyHandlerCreateFunc)
-	init_daily()
-}
-
-func Close() {
-	Default().close()
-}
-
-func Flush() {
-	Close()
-}
-
-func Trace(msg ...any) {
-	log_any(LevelTrace, nil, msg...)
-}
-
-func Tracef(msg string, args ...any) {
-	logf(get_skip(), LevelTrace, nil, msg, args...)
-}
-
-func Debug(msg ...any) {
-	log_any(LevelDebug, nil, msg...)
-}
-
-func Debugf(msg string, args ...any) {
-	logf(get_skip(), LevelDebug, nil, msg, args...)
-}
-
-func Info(msg ...any) {
-	log_any(LevelInfo, nil, msg...)
-}
-
-func Infof(msg string, args ...any) {
-	logf(get_skip(), LevelInfo, nil, msg, args...)
-}
-
-func Notice(msg ...any) {
-	log_any(LevelNotice, nil, msg...)
-}
-
-func Noticef(msg string, args ...any) {
-	logf(get_skip(), LevelNotice, nil, msg, args...)
-}
-
-func Warn(msg ...any) {
-	log_any(LevelWarn, nil, msg...)
-}
-
-func Warnf(msg string, args ...any) {
-	logf(get_skip(), LevelWarn, nil, msg, args...)
-}
-
-func Err(msg ...any) {
-	log_any(LevelErr, nil, msg...)
-}
-
-func Errf(msg string, args ...any) {
-	logf(get_skip(), LevelErr, nil, msg, args...)
-}
-
-func Emergency(msg ...any) {
-	log_any(LevelEmergency, nil, msg...)
-}
-
-func Emergencyf(msg string, args ...any) {
-	logf(get_skip(), LevelEmergency, nil, msg, args...)
-}
-
-func Fatalf(format string, v ...any) {
-	defer func() {
-		Flush()
-		os.Exit(1)
-	}()
-	logf(get_skip(), LevelFatal, nil, format, v...)
-	s := string(debug.Stack())
-	log_any(LevelFatal, nil, s)
-	fmt.Println(s)
-}
-
-func Fatalln(v ...any) {
-	defer func() {
-		Flush()
-		os.Exit(1)
-	}()
-	log_any(LevelFatal, nil, v...)
-	s := string(debug.Stack())
-	log_any(LevelFatal, nil, s)
-	fmt.Println(s)
-}

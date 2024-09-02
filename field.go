@@ -7,74 +7,78 @@ import (
 	"runtime/debug"
 )
 
-type field map[string]slog.Value
+type Field map[string]slog.Value
 
-func Fields() field {
-	return field{}
+func Fields() Field {
+	return Field{}
 }
 
-func (this field) Add(key string, value any) field {
+func get_local_skip() int {
+	return get_skip() + 1
+}
+
+func (this Field) Add(key string, value any) Field {
 	this[key] = slog.AnyValue(value)
 	return this
 }
 
-func (this field) Trace(msg ...any) {
+func (this Field) Trace(msg ...any) {
 	log_any(LevelTrace, this, msg...)
 }
 
-func (this field) Tracef(msg string, args ...any) {
-	logf(3, LevelTrace, this, msg, args...)
+func (this Field) Tracef(msg string, args ...any) {
+	logf(get_local_skip(), LevelTrace, this, msg, args...)
 }
 
-func (this field) Debug(msg ...any) {
+func (this Field) Debug(msg ...any) {
 	log_any(LevelDebug, this, msg...)
 }
 
-func (this field) Debugf(msg string, args ...any) {
-	logf(3, LevelDebug, this, msg, args...)
+func (this Field) Debugf(msg string, args ...any) {
+	logf(get_local_skip(), LevelDebug, this, msg, args...)
 }
 
-func (this field) Info(msg ...any) {
+func (this Field) Info(msg ...any) {
 	log_any(LevelInfo, this, msg...)
 }
 
-func (this field) Infof(msg string, args ...any) {
-	logf(3, LevelInfo, this, msg, args...)
+func (this Field) Infof(msg string, args ...any) {
+	logf(get_local_skip(), LevelInfo, this, msg, args...)
 }
 
-func (this field) Notice(msg ...any) {
+func (this Field) Notice(msg ...any) {
 	log_any(LevelNotice, this, msg...)
 }
 
-func (this field) Noticef(msg string, args ...any) {
-	logf(3, LevelNotice, this, msg, args...)
+func (this Field) Noticef(msg string, args ...any) {
+	logf(get_local_skip(), LevelNotice, this, msg, args...)
 }
 
-func (this field) Warn(msg ...any) {
+func (this Field) Warn(msg ...any) {
 	log_any(LevelWarn, this, msg...)
 }
 
-func (this field) Warnf(msg string, args ...any) {
-	logf(3, LevelWarn, this, msg, args...)
+func (this Field) Warnf(msg string, args ...any) {
+	logf(get_local_skip(), LevelWarn, this, msg, args...)
 }
 
-func (this field) Err(msg ...any) {
+func (this Field) Err(msg ...any) {
 	log_any(LevelErr, this, msg...)
 }
 
-func (this field) Errf(msg string, args ...any) {
-	logf(3, LevelErr, this, msg, args...)
+func (this Field) Errf(msg string, args ...any) {
+	logf(get_local_skip(), LevelErr, this, msg, args...)
 }
 
-func (this field) Emergency(msg ...any) {
+func (this Field) Emergency(msg ...any) {
 	log_any(LevelEmergency, this, msg...)
 }
 
-func (this field) Emergencyf(msg string, args ...any) {
-	logf(3, LevelEmergency, this, msg, args...)
+func (this Field) Emergencyf(msg string, args ...any) {
+	logf(get_local_skip(), LevelEmergency, this, msg, args...)
 }
 
-func (this field) Fatal(msg ...any) {
+func (this Field) Fatal(msg ...any) {
 	defer func() {
 		Flush()
 		os.Exit(1)
@@ -85,12 +89,12 @@ func (this field) Fatal(msg ...any) {
 	fmt.Println(s)
 }
 
-func (this field) Fatalf(msg string, args ...any) {
+func (this Field) Fatalf(msg string, args ...any) {
 	defer func() {
 		Flush()
 		os.Exit(1)
 	}()
-	logf(3, LevelFatal, this, msg, args...)
+	logf(get_local_skip(), LevelFatal, this, msg, args...)
 	s := string(debug.Stack())
 	log_any(LevelFatal, nil, s)
 	fmt.Println(s)

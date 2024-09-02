@@ -80,7 +80,7 @@ func (this *custom_handler) Handle(_ context.Context, r slog.Record) error {
 		state.appendKey(key)
 		state.appendString(msg)
 	} else {
-		state.appendString(msg)
+		state.buf.WriteString(msg)
 		// state.appendAttr(slog.String(key, msg))
 		// state.appendString(msg)
 	}
