@@ -8,7 +8,7 @@ import (
 )
 
 // api
-// eg:美化每一个答应对象,json序列化等
+// eg:美化每一个输出对象,json序列化等
 func SetWrapFunc(f warp_func) {
 	wrap_func_obj = f
 }
