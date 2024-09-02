@@ -13,69 +13,66 @@ func Fields() Field {
 	return Field{}
 }
 
-func get_local_skip() int {
-	return get_skip() + 1
-}
-
 func (this Field) Add(key string, value any) Field {
 	this[key] = slog.AnyValue(value)
 	return this
 }
 
+// 3 写死是没问题,因为外围是不会包装这个函数的,直接暴露Fields字段
 func (this Field) Trace(msg ...any) {
-	log_any(LevelTrace, this, msg...)
+	log(3, LevelTrace, this, msg...)
 }
 
 func (this Field) Tracef(msg string, args ...any) {
-	logf(get_local_skip(), LevelTrace, this, msg, args...)
+	logf(3, LevelTrace, this, msg, args...)
 }
 
 func (this Field) Debug(msg ...any) {
-	log_any(LevelDebug, this, msg...)
+	log(3, LevelDebug, this, msg...)
 }
 
 func (this Field) Debugf(msg string, args ...any) {
-	logf(get_local_skip(), LevelDebug, this, msg, args...)
+	logf(3, LevelDebug, this, msg, args...)
 }
 
 func (this Field) Info(msg ...any) {
-	log_any(LevelInfo, this, msg...)
+	log(3, LevelInfo, this, msg...)
 }
 
 func (this Field) Infof(msg string, args ...any) {
-	logf(get_local_skip(), LevelInfo, this, msg, args...)
+	logf(3, LevelInfo, this, msg, args...)
 }
 
 func (this Field) Notice(msg ...any) {
-	log_any(LevelNotice, this, msg...)
+	log(3, LevelNotice, this, msg...)
 }
 
 func (this Field) Noticef(msg string, args ...any) {
-	logf(get_local_skip(), LevelNotice, this, msg, args...)
+	logf(3, LevelNotice, this, msg, args...)
 }
 
 func (this Field) Warn(msg ...any) {
-	log_any(LevelWarn, this, msg...)
+	log(3, LevelWarn, this, msg...)
 }
 
 func (this Field) Warnf(msg string, args ...any) {
-	logf(get_local_skip(), LevelWarn, this, msg, args...)
+	logf(3, LevelWarn, this, msg, args...)
 }
 
 func (this Field) Err(msg ...any) {
-	log_any(LevelErr, this, msg...)
+	log(3, LevelErr, this, msg...)
 }
 
 func (this Field) Errf(msg string, args ...any) {
-	logf(get_local_skip(), LevelErr, this, msg, args...)
+	logf(3, LevelErr, this, msg, args...)
 }
 
 func (this Field) Emergency(msg ...any) {
-	log_any(LevelEmergency, this, msg...)
+	log(3, LevelEmergency, this, msg...)
 }
 
 func (this Field) Emergencyf(msg string, args ...any) {
-	logf(get_local_skip(), LevelEmergency, this, msg, args...)
+	logf(3, LevelEmergency, this, msg, args...)
 }
 
 func (this Field) Fatal(msg ...any) {
@@ -83,9 +80,9 @@ func (this Field) Fatal(msg ...any) {
 		Flush()
 		os.Exit(1)
 	}()
-	log_any(LevelFatal, this, msg...)
+	log(3, LevelFatal, this, msg...)
 	s := string(debug.Stack())
-	log_any(LevelFatal, nil, s)
+	log(3, LevelFatal, nil, s)
 	fmt.Println(s)
 }
 
@@ -94,8 +91,8 @@ func (this Field) Fatalf(msg string, args ...any) {
 		Flush()
 		os.Exit(1)
 	}()
-	logf(get_local_skip(), LevelFatal, this, msg, args...)
+	logf(3, LevelFatal, this, msg, args...)
 	s := string(debug.Stack())
-	log_any(LevelFatal, nil, s)
+	log(3, LevelFatal, nil, s)
 	fmt.Println(s)
 }

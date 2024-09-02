@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ndsky1003/buffer"
 	"github.com/robfig/cron/v3"
 )
 
@@ -257,24 +258,6 @@ var (
 	}
 )
 
-// func trimsamestr(s string, trims []rune) string {
-// 	index := -1
-// 	for i, v := range s {
-// 		if i >= len(trims) {
-// 			break
-// 		}
-// 		if v != trims[i] {
-// 			break
-// 		}
-// 		index = i
-// 	}
-// 	if index != -1 {
-// 		return s[index+1:]
-// 	} else {
-// 		return s
-// 	}
-// }
-
 func get_skip() int {
 	return default_skip + delta_skip
 }
@@ -293,10 +276,22 @@ func logf(skip int, level slog.Level, f Field, msg string, args ...any) {
 	Default().log(&r)
 }
 
-func log(skip int, level slog.Level, f Field, msg string) {
+func log(skip int, level slog.Level, f Field, msgs ...any) {
+	s := ""
+	if wrap_func_obj != nil {
+		s = wrap_func_obj(msgs...)
+	} else {
+		buf := buffer.Get()
+		defer buf.Release()
+		for _, v := range msgs {
+			str := fmt.Sprintf("%+v ", v)
+			buf.WriteString(str)
+		}
+		s = buf.String()
+	}
 	var pcs [1]uintptr
 	runtime.Callers(skip, pcs[:])
-	r := slog.NewRecord(time.Now(), level, msg, pcs[0])
+	r := slog.NewRecord(time.Now(), level, s, pcs[0])
 	if f != nil {
 		attrs := make([]slog.Attr, 0, len(f))
 		for k, v := range f {
@@ -308,13 +303,7 @@ func log(skip int, level slog.Level, f Field, msg string) {
 }
 
 func log_any(l slog.Level, f Field, msgs ...any) {
-	s := ""
-	if wrap_func_obj != nil {
-		s = wrap_func_obj(msgs...)
-	} else {
-		s = fmt.Sprint(msgs...)
-	}
-	log(get_skip()+1, l, f, s)
+	log(get_skip()+1, l, f, msgs...)
 }
 
 type warp_func func(...any) string

@@ -1,2 +1,4 @@
+github.com/ndsky1003/buffer v0.0.1 h1:DC5wz76oISuLtMKS+joaj4Dh6vKFVJwGRfMzXXpgiKU=
+github.com/ndsky1003/buffer v0.0.1/go.mod h1:uqzrgaowCkfIjpvetHaM+XHQemOg+IlPnhu0ZWhkBG8=
 github.com/robfig/cron/v3 v3.0.1 h1:WdRxkvbJztn8LMz/QEvLN5sBU+xKpSqwwUO1Pjr4qDs=
 github.com/robfig/cron/v3 v3.0.1/go.mod h1:eQICP3HwyT7UooqI/z+Ov+PtYAWygg1TEWWzGIFLtro=
