@@ -1,8 +1,5 @@
 # logger
-base on slog
-该库并非同步打印，不会阻塞进程
-
-#### usage
+> 这只是一个handler的实现
 
 ## install
 

@@ -18,27 +18,17 @@ import (
 	"github.com/ndsky1003/buffer/v2"
 )
 
+// 1. 接口守卫
+var _ slog.Handler = (*FastTextHandler)(nil)
+
 var pool = buffer.NewBufferPool(buffer.Options().SetCalibratedSz(0).SetMinSize(512))
-
-type addSourceVar struct {
-	val atomic.Pointer[bool]
-}
-
-func (v *addSourceVar) Load() bool {
-	return *v.val.Load()
-}
-
-// Set sets v's level to l.
-func (v *addSourceVar) Set(b bool) {
-	v.val.Store(&b)
-}
 
 // FastTextHandler 高性能文本 Handler
 type FastTextHandler struct {
 	w            io.Writer
 	opt          *Option
 	level        *slog.LevelVar
-	addSource    *addSourceVar
+	addSource    *atomic.Bool
 	mu           *sync.Mutex
 	preformatted []byte // 预序列化的属性 (WithAttrs)
 	groupPrefix  string // 组前缀 (WithGroup)
@@ -56,11 +46,11 @@ func NewFastTextHandler(opts ...*Option) *FastTextHandler {
 		w:         opt.w,
 		opt:       &opt,
 		level:     &slog.LevelVar{},
-		addSource: &addSourceVar{},
+		addSource: &atomic.Bool{},
 		mu:        &sync.Mutex{},
 	}
 	c.level.Set(*opt.level)
-	c.addSource.Set(*opt.addSource)
+	c.addSource.Store(*opt.addSource)
 	return c
 }
 
@@ -68,7 +58,7 @@ func (h *FastTextHandler) SetLevel(level Level) {
 	h.level.Set(level)
 }
 func (h *FastTextHandler) SetAddSource(b bool) {
-	h.addSource.Set(b)
+	h.addSource.Store(b)
 }
 
 func (h *FastTextHandler) Enabled(ctx context.Context, level slog.Level) bool {
@@ -175,6 +165,19 @@ func (h *FastTextHandler) WithGroup(name string) slog.Handler {
 // -----------------------------------------------------------------------------
 
 func (h *FastTextHandler) appendAttr(b *bytes.Buffer, a slog.Attr, prefix string) {
+	// 1. 处理 ReplaceAttr 逻辑
+	if h.opt.replaceAttr != nil {
+		// groups 参数目前你的实现没维护，如果是扁平结构传 nil 即可
+		// 也就是 h.opt.replaceAttr(nil, a)
+		// 但为了严谨，最好在 Handler 里维护 groups 栈，如果暂不支持 group，至少传 nil
+		a = h.opt.replaceAttr(prefix, a)
+	}
+
+	// ReplaceAttr 可能会返回空的 Attr 意为删除该字段
+	if a.Equal(slog.Attr{}) {
+		return
+	}
+
 	a.Value = a.Value.Resolve()
 	if a.Equal(slog.Attr{}) {
 		return
