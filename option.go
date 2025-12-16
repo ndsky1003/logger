@@ -1,6 +1,8 @@
 package logger
 
 import (
+	"context"
+	"io"
 	"log/slog"
 	"strings"
 )
@@ -10,9 +12,20 @@ func Options() *Option {
 }
 
 type Option struct {
-	AddSource   *bool
-	Level       slog.Leveler
-	ReplaceAttr func(groups []string, a slog.Attr) slog.Attr
+	w            io.Writer
+	AddSource    *bool
+	Level        slog.Leveler
+	ReplaceAttr  func(groups []string, a slog.Attr) slog.Attr
+	extractorfn  func(ctx context.Context) []slog.Attr //提取context的元数据,设置到record的attr上
+	forcedebugfn func(ctx context.Context) bool        //强制打印的信息
+}
+
+func (o *Option) SetExtractorAttr(fn func(context.Context) []slog.Attr) *Option {
+	if o == nil {
+		return o
+	}
+	o.extractorfn = fn
+	return o
 }
 
 func (o *Option) SetAddSource(addSource bool) *Option {
@@ -20,6 +33,14 @@ func (o *Option) SetAddSource(addSource bool) *Option {
 		return o
 	}
 	o.AddSource = &addSource
+	return o
+}
+
+func (o *Option) SetWriter(w io.Writer) *Option {
+	if o == nil {
+		return o
+	}
+	o.w = w
 	return o
 }
 
@@ -38,15 +59,15 @@ func (o *Option) SetLevelString(lvl string) *Option {
 	var level slog.Level
 	switch strings.ToLower(lvl) {
 	case "debug":
-		level = slog.LevelDebug
+		level = LevelDebug
 	case "info":
-		level = slog.LevelInfo
+		level = LevelInfo
 	case "warn":
-		level = slog.LevelWarn
+		level = LevelWarn
 	case "error":
-		level = slog.LevelError
+		level = LevelError
 	default:
-		level = slog.LevelInfo
+		level = LevelInfo
 	}
 	return o.SetLevel(level)
 }
@@ -71,6 +92,13 @@ func (o *Option) merge(delta *Option) {
 	}
 	if delta.ReplaceAttr != nil {
 		o.ReplaceAttr = delta.ReplaceAttr
+	}
+	if delta.w != nil {
+		o.w = delta.w
+	}
+
+	if delta.extractorfn != nil {
+		o.extractorfn = delta.extractorfn
 	}
 }
 

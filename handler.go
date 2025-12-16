@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -28,25 +29,40 @@ type FastTextHandler struct {
 }
 
 // NewFastTextHandler 构造函数
-func NewFastTextHandler(w io.Writer, opts ...*Option) *FastTextHandler {
+func NewFastTextHandler(opts ...*Option) *FastTextHandler {
 	opt := Options().
+		SetWriter(os.Stdout).
 		SetAddSource(false).
-		SetLevel(slog.LevelInfo).
+		SetLevel(LevelInfo).
 		Merge(opts...)
 
 	return &FastTextHandler{
-		w:   w,
+		w:   opt.w,
 		mu:  &sync.Mutex{},
 		opt: &opt,
 	}
 }
 
-func (h *FastTextHandler) Enabled(_ context.Context, level slog.Level) bool {
+// 方便运行时,通过后台修改配置
+// 改动不具有原子性,难道全局加上原子性?,其实并发修改问题也不大
+func (h *FastTextHandler) GetOption() *Option {
+	return h.opt
+}
+
+func (h *FastTextHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	if h.opt.forcedebugfn != nil && h.opt.forcedebugfn(ctx) {
+		return true
+	}
 	return level >= h.opt.Level.Level()
 }
 
 // Handle 核心热点路径
-func (h *FastTextHandler) Handle(_ context.Context, r slog.Record) error {
+func (h *FastTextHandler) Handle(ctx context.Context, r slog.Record) error {
+	if h.opt.extractorfn != nil {
+		if arr := h.opt.extractorfn(ctx); len(arr) > 0 {
+			r.AddAttrs(arr...)
+		}
+	}
 	// 1. 获取原生 buffer (0 allocation)
 	buf := pool.Get()
 	// 2. 归还 (Defer 在极高性能场景有微小开销，但在 IO 操作前可忽略)
