@@ -13,9 +13,9 @@ func Options() *Option {
 
 type Option struct {
 	w            io.Writer
-	AddSource    *bool
-	Level        slog.Leveler
-	ReplaceAttr  func(groups []string, a slog.Attr) slog.Attr
+	level        *Level
+	addSource    *bool
+	replaceAttr  func(groups []string, a slog.Attr) slog.Attr
 	extractorfn  func(ctx context.Context) []slog.Attr //提取context的元数据,设置到record的attr上
 	forcedebugfn func(ctx context.Context) bool        //强制打印的信息
 }
@@ -32,7 +32,7 @@ func (o *Option) SetAddSource(addSource bool) *Option {
 	if o == nil {
 		return o
 	}
-	o.AddSource = &addSource
+	o.addSource = &addSource
 	return o
 }
 
@@ -44,11 +44,11 @@ func (o *Option) SetWriter(w io.Writer) *Option {
 	return o
 }
 
-func (o *Option) SetLevel(level slog.Leveler) *Option {
+func (o *Option) SetLevel(level Level) *Option {
 	if o == nil {
 		return o
 	}
-	o.Level = level
+	o.level = &level
 	return o
 }
 
@@ -76,7 +76,7 @@ func (o *Option) SetReplaceAttr(replaceAttr func(groups []string, a slog.Attr) s
 	if o == nil {
 		return o
 	}
-	o.ReplaceAttr = replaceAttr
+	o.replaceAttr = replaceAttr
 	return o
 }
 
@@ -84,14 +84,14 @@ func (o *Option) merge(delta *Option) {
 	if delta == nil || o == nil {
 		return
 	}
-	if delta.AddSource != nil {
-		o.AddSource = delta.AddSource
+	if delta.addSource != nil {
+		o.addSource = delta.addSource
 	}
-	if delta.Level != nil {
-		o.Level = delta.Level
+	if delta.level != nil {
+		o.level = delta.level
 	}
-	if delta.ReplaceAttr != nil {
-		o.ReplaceAttr = delta.ReplaceAttr
+	if delta.replaceAttr != nil {
+		o.replaceAttr = delta.replaceAttr
 	}
 	if delta.w != nil {
 		o.w = delta.w

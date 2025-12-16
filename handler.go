@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ndsky1003/buffer/v2"
@@ -19,10 +20,25 @@ import (
 
 var pool = buffer.NewBufferPool(buffer.Options().SetCalibratedSz(0).SetMinSize(512))
 
+type addSourceVar struct {
+	val atomic.Pointer[bool]
+}
+
+func (v *addSourceVar) Load() bool {
+	return *v.val.Load()
+}
+
+// Set sets v's level to l.
+func (v *addSourceVar) Set(b bool) {
+	v.val.Store(&b)
+}
+
 // FastTextHandler 高性能文本 Handler
 type FastTextHandler struct {
 	w            io.Writer
 	opt          *Option
+	level        *slog.LevelVar
+	addSource    *addSourceVar
 	mu           *sync.Mutex
 	preformatted []byte // 预序列化的属性 (WithAttrs)
 	groupPrefix  string // 组前缀 (WithGroup)
@@ -36,30 +52,38 @@ func NewFastTextHandler(opts ...*Option) *FastTextHandler {
 		SetLevel(LevelInfo).
 		Merge(opts...)
 
-	return &FastTextHandler{
-		w:   opt.w,
-		mu:  &sync.Mutex{},
-		opt: &opt,
+	c := &FastTextHandler{
+		w:         opt.w,
+		opt:       &opt,
+		level:     &slog.LevelVar{},
+		addSource: &addSourceVar{},
+		mu:        &sync.Mutex{},
 	}
+	c.level.Set(*opt.level)
+	c.addSource.Set(*opt.addSource)
+	return c
 }
 
-// 方便运行时,通过后台修改配置
-// 改动不具有原子性,难道全局加上原子性?,其实并发修改问题也不大
-func (h *FastTextHandler) GetOption() *Option {
-	return h.opt
+func (h *FastTextHandler) SetLevel(level Level) {
+	h.level.Set(level)
+}
+func (h *FastTextHandler) SetAddSource(b bool) {
+	h.addSource.Set(b)
 }
 
 func (h *FastTextHandler) Enabled(ctx context.Context, level slog.Level) bool {
-	if h.opt.forcedebugfn != nil && h.opt.forcedebugfn(ctx) {
+	opt := h.opt
+	if opt.forcedebugfn != nil && opt.forcedebugfn(ctx) {
 		return true
 	}
-	return level >= h.opt.Level.Level()
+	return level >= h.level.Level()
 }
 
 // Handle 核心热点路径
 func (h *FastTextHandler) Handle(ctx context.Context, r slog.Record) error {
-	if h.opt.extractorfn != nil {
-		if arr := h.opt.extractorfn(ctx); len(arr) > 0 {
+	opt := h.opt
+	if opt.extractorfn != nil {
+		if arr := opt.extractorfn(ctx); len(arr) > 0 {
 			r.AddAttrs(arr...)
 		}
 	}
@@ -82,7 +106,7 @@ func (h *FastTextHandler) Handle(ctx context.Context, r slog.Record) error {
 	buf.WriteByte(' ')
 
 	// source=... (只有开启才计算)
-	if *h.opt.AddSource && r.PC != 0 {
+	if h.addSource.Load() && r.PC != 0 {
 		// buf.WriteString("source=")
 		writeSource(buf, r.PC)
 		buf.WriteByte(' ')
@@ -222,7 +246,6 @@ func fastAppendTime(b *bytes.Buffer, t time.Time) {
 		b.Write(formatted)
 	}
 
-	return
 }
 
 func writeSource(b *bytes.Buffer, pc uintptr) {
