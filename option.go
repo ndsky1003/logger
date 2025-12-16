@@ -1,6 +1,9 @@
 package logger
 
-import "log/slog"
+import (
+	"log/slog"
+	"strings"
+)
 
 func Options() *Option {
 	return &Option{}
@@ -26,6 +29,26 @@ func (o *Option) SetLevel(level slog.Leveler) *Option {
 	}
 	o.Level = level
 	return o
+}
+
+func (o *Option) SetLevelString(lvl string) *Option {
+	if o == nil {
+		return o
+	}
+	var level slog.Level
+	switch strings.ToLower(lvl) {
+	case "debug":
+		level = slog.LevelDebug
+	case "info":
+		level = slog.LevelInfo
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+	return o.SetLevel(level)
 }
 
 func (o *Option) SetReplaceAttr(replaceAttr func(groups []string, a slog.Attr) slog.Attr) *Option {
