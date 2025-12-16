@@ -15,7 +15,7 @@ type Option struct {
 	w            io.Writer
 	level        *Level
 	addSource    *bool
-	replaceAttr  func(groups string, a slog.Attr) slog.Attr
+	replaceAttr  func(groups []string, a slog.Attr) slog.Attr
 	extractorfn  func(ctx context.Context) []slog.Attr //提取context的元数据,设置到record的attr上
 	forcedebugfn func(ctx context.Context) bool        //强制打印的信息
 }
@@ -72,7 +72,7 @@ func (o *Option) SetLevelString(lvl string) *Option {
 	return o.SetLevel(level)
 }
 
-func (o *Option) SetReplaceAttr(replaceAttr func(groups string, a slog.Attr) slog.Attr) *Option {
+func (o *Option) SetReplaceAttr(replaceAttr func(groups []string, a slog.Attr) slog.Attr) *Option {
 	if o == nil {
 		return o
 	}

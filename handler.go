@@ -30,6 +30,7 @@ type FastTextHandler struct {
 	level        *slog.LevelVar
 	addSource    *atomic.Bool
 	mu           *sync.Mutex
+	timeCache    *atomic.Pointer[timeCache]
 	preformatted []byte // 预序列化的属性 (WithAttrs)
 	groupPrefix  string // 组前缀 (WithGroup)
 }
@@ -47,8 +48,10 @@ func NewFastTextHandler(opts ...*Option) *FastTextHandler {
 		opt:       &opt,
 		level:     &slog.LevelVar{},
 		addSource: &atomic.Bool{},
+		timeCache: &atomic.Pointer[timeCache]{},
 		mu:        &sync.Mutex{},
 	}
+	updateTimeCache(c.timeCache, time.Now())
 	c.level.Set(*opt.level)
 	c.addSource.Store(*opt.addSource)
 	return c
@@ -86,7 +89,7 @@ func (h *FastTextHandler) Handle(ctx context.Context, r slog.Record) error {
 	// time=...
 	if !r.Time.IsZero() {
 		// buf.WriteString("time=")
-		writeTime(buf, r.Time)
+		writeTime(h.timeCache, buf, r.Time)
 		buf.WriteByte(' ')
 	}
 
@@ -170,7 +173,7 @@ func (h *FastTextHandler) appendAttr(b *bytes.Buffer, a slog.Attr, prefix string
 		// groups 参数目前你的实现没维护，如果是扁平结构传 nil 即可
 		// 也就是 h.opt.replaceAttr(nil, a)
 		// 但为了严谨，最好在 Handler 里维护 groups 栈，如果暂不支持 group，至少传 nil
-		a = h.opt.replaceAttr(prefix, a)
+		a = h.opt.replaceAttr(nil, a)
 	}
 
 	// ReplaceAttr 可能会返回空的 Attr 意为删除该字段
@@ -189,10 +192,10 @@ func (h *FastTextHandler) appendAttr(b *bytes.Buffer, a slog.Attr, prefix string
 	}
 	b.WriteString(a.Key)
 	b.WriteByte('=')
-	writeValue(b, a.Value)
+	h.writeValue(b, a.Value)
 }
 
-func writeValue(b *bytes.Buffer, v slog.Value) {
+func (h *FastTextHandler) writeValue(b *bytes.Buffer, v slog.Value) {
 	switch v.Kind() {
 	case slog.KindString:
 		writeString(b, v.String())
@@ -217,7 +220,7 @@ func writeValue(b *bytes.Buffer, v slog.Value) {
 		b.WriteByte('"')
 	case slog.KindTime:
 		b.WriteByte('"')
-		writeTime(b, v.Time())
+		writeTime(h.timeCache, b, v.Time())
 		b.WriteByte('"')
 	case slog.KindAny:
 		if tm, ok := v.Any().(encoding.TextMarshaler); ok {
@@ -233,19 +236,19 @@ func writeValue(b *bytes.Buffer, v slog.Value) {
 	}
 }
 
-func writeTime(b *bytes.Buffer, t time.Time) {
-	fastAppendTime(b, t)
+func writeTime(tc *atomic.Pointer[timeCache], b *bytes.Buffer, t time.Time) {
+	fastAppendTime(tc, b, t)
 }
 
-func fastAppendTime(b *bytes.Buffer, t time.Time) {
+func fastAppendTime(tc *atomic.Pointer[timeCache], b *bytes.Buffer, t time.Time) {
 	unixSec := t.Unix()
-	cache := globalTimeCache.Load()
+	cache := tc.Load()
 
 	if cache != nil && cache.unixSec == unixSec {
 		// 命中缓存：直接写入预先格式化好的字节
 		b.Write(cache.formatted)
 	} else {
-		formatted := updateTimeCache(t)
+		formatted := updateTimeCache(tc, t)
 		b.Write(formatted)
 	}
 

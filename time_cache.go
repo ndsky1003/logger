@@ -11,15 +11,7 @@ type timeCache struct {
 	formatted []byte // 格式化好的字节： "2025-12-14T10:00:01"
 }
 
-// 全局原子容器，存储当前的 cache
-var globalTimeCache atomic.Pointer[timeCache]
-
-// 初始化
-func init() {
-	updateTimeCache(time.Now())
-}
-
-func updateTimeCache(t time.Time) []byte {
+func updateTimeCache(cache *atomic.Pointer[timeCache], t time.Time) []byte {
 	newCache := &timeCache{
 		unixSec: t.Unix(),
 	}
@@ -43,7 +35,7 @@ func updateTimeCache(t time.Time) []byte {
 	newCache.formatted = buf
 
 	// 原子替换
-	globalTimeCache.Store(newCache)
+	cache.Store(newCache)
 	return buf
 }
 
