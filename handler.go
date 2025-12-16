@@ -194,24 +194,19 @@ func (h *FastTextHandler) appendAttr(b *bytes.Buffer, a slog.Attr, prefix string
 }
 
 func (h *FastTextHandler) writeValue(b *bytes.Buffer, v slog.Value) {
+	var buf [64]byte
 	switch v.Kind() {
 	case slog.KindString:
 		writeString(b, v.String())
 	case slog.KindInt64:
-		// strconv.AppendInt 是零分配的，但 bytes.Buffer 没有直接接收 []byte 的 AppendInt
-		// 为了性能，我们转成 string 写入，Go 的编译器对这种短字符串转换有优化
-		// 极致优化可以用 b.Write(strconv.AppendInt(tempBuf, ...)) 但需要管理 tempBuf
-		b.WriteString(strconv.FormatInt(v.Int64(), 10))
+		// AppendInt 将结果写入 buf[:0]，不产生堆分配
+		b.Write(strconv.AppendInt(buf[:0], v.Int64(), 10))
 	case slog.KindUint64:
-		b.WriteString(strconv.FormatUint(v.Uint64(), 10))
+		b.Write(strconv.AppendUint(buf[:0], v.Uint64(), 10))
 	case slog.KindFloat64:
-		b.WriteString(strconv.FormatFloat(v.Float64(), 'f', -1, 64))
+		b.Write(strconv.AppendFloat(buf[:0], v.Float64(), 'f', -1, 64))
 	case slog.KindBool:
-		if v.Bool() {
-			b.WriteString("true")
-		} else {
-			b.WriteString("false")
-		}
+		b.Write(strconv.AppendBool(buf[:0], v.Bool()))
 	case slog.KindDuration:
 		b.WriteByte('"')
 		b.WriteString(v.Duration().String())
