@@ -16,11 +16,11 @@ type Option struct {
 	level        *Level
 	addSource    *bool
 	replaceAttr  func(groups []string, a slog.Attr) slog.Attr
-	extractorfn  func(ctx context.Context) []slog.Attr //提取context的元数据,设置到record的attr上
-	forcedebugfn func(ctx context.Context) bool        //强制打印的信息
+	extractorfn  func(context.Context, *slog.Record) //提取context的元数据,设置到record的attr上,特别是那些traceID.这样就可以把ctx的value的key设计到项目根目录上,而不是设计到其他的地方
+	forcedebugfn func(ctx context.Context) bool      //强制打印的信息
 }
 
-func (o *Option) SetExtractorAttr(fn func(context.Context) []slog.Attr) *Option {
+func (o *Option) SetExtractorAttr(fn func(context.Context, *slog.Record)) *Option {
 	if o == nil {
 		return o
 	}

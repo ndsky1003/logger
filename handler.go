@@ -76,9 +76,7 @@ func (h *FastTextHandler) Enabled(ctx context.Context, level slog.Level) bool {
 func (h *FastTextHandler) Handle(ctx context.Context, r slog.Record) error {
 	opt := h.opt
 	if opt.extractorfn != nil {
-		if arr := opt.extractorfn(ctx); len(arr) > 0 {
-			r.AddAttrs(arr...)
-		}
+		opt.extractorfn(ctx, &r)
 	}
 	// 1. 获取原生 buffer (0 allocation)
 	buf := pool.Get()
@@ -254,18 +252,34 @@ func fastAppendTime(tc *atomic.Pointer[timeCache], b *bytes.Buffer, t time.Time)
 
 }
 
+// 全局或绑定在 Handler 上的缓存
+var pcCache sync.Map // key: uintptr, value: []byte
+
 func writeSource(b *bytes.Buffer, pc uintptr) {
+	// 1. 查缓存
+	if v, ok := pcCache.Load(pc); ok {
+		b.Write(v.([]byte))
+		return
+	}
+
+	// 2. 缓存未命中，执行昂贵的查找
 	fs := runtime.CallersFrames([]uintptr{pc})
 	f, _ := fs.Next()
 	if f.File == "" {
 		return
 	}
 	_, file := filepath.Split(f.File)
-	// b.WriteByte('"')
-	b.WriteString(file)
-	b.WriteByte(':')
-	b.WriteString(strconv.Itoa(f.Line))
-	// b.WriteByte('"')
+
+	// 格式化为 "file.go:123"
+	var tmp [32]byte
+	result := make([]byte, 0, len(file)+10)
+	result = append(result, file...)
+	result = append(result, ':')
+	result = append(result, strconv.AppendInt(tmp[:0], int64(f.Line), 10)...)
+
+	// 3. 写入缓存并输出
+	pcCache.Store(pc, result)
+	b.Write(result)
 }
 
 // writeString 处理需要转义的字符串
